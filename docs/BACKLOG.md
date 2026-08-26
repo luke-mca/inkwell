@@ -9,3 +9,5 @@ Definition of Done: see README.md
 | US-05 | As a reader, I want to comment on a post... | Medium | 3 | Backlog |
 | US-06 | As a reader, I want to follow an author... | Medium | 3 | Backlog |
 | US-07 | As an author, I want basic analytics... | Low | 5 | Backlog |
+| US-08 | As a reader, I want to view my recently read posts. | Low | 5 | Backlog |
+| US-09 | As an author, I want to be able to make revisions to my already made posts | 3 | Backlog |
