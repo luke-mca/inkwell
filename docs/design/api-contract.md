@@ -15,3 +15,12 @@ Errors:
 
 ## GET /api/posts?page=n
 Success: 200 { posts: PostPublic[], page: number, hasMore: boolean }
+
+## POST /api/posts/:id/comments
+Auth: required (access token)
+Request: { body: string }
+Success: 201 { comment: CommentPublic }
+Errors:
+  400 EMPTY_COMMENT_BODY        — "Comment is empty."
+  400 COMMENT_TOO_LONG          — "Comment is longer than the maximum length."
+  404 POST_NOT_FOUND            — "This post can not be found."
