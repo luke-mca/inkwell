@@ -3,10 +3,13 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@prisma/adapter-pg": "^7.10.0",
+    "@prisma/client": "^7.10.0",
     "bcrypt": "^6.0.0",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
-    "jsonwebtoken": "^9.0.3"
+    "jsonwebtoken": "^9.0.3",
+    "prisma": "^7.10.0"
   },
   "name": "inkwell-server",
   "version": "0.1.0",
@@ -14,6 +17,6 @@
   "description": "Inkwell API server",
   "type": "module",
   "scripts": {
-    "dev": "node --watch src/index.js"
+    "dev": "node --watch --env-file=.env src/index.js"
   }
 }
