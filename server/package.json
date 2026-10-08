@@ -16,6 +16,9 @@
   "private": true,
   "description": "Inkwell API server",
   "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "scripts": {
     "dev": "node --watch --env-file=.env src/index.js"
   }
