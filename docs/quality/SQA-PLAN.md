@@ -10,7 +10,7 @@
 - Review findings logged in docs/reviews/
 
 ## Testing (expanded in Lecture 12-14)
-- Unit tests: Services and Repositories (Jest) — starting Lecture 12
+- Unit tests: Services and Repositories (Jest) — ACTIVE as of Lecture 12
 - Integration tests: Routes (Supertest) — starting Lecture 13
 - End-to-end tests: critical user flows (Playwright) — starting Lecture 14
 

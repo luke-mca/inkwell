@@ -71,4 +71,9 @@ export const AuthService = {
   },
 };
 
-export { EmailAlreadyRegisteredError, WeakPasswordError, InvalidCredentialsError, ValidationError };
+export {
+  EmailAlreadyRegisteredError,
+  WeakPasswordError,
+  InvalidCredentialsError,
+  ValidationError,
+};
