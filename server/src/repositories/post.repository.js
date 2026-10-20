@@ -9,7 +9,7 @@ export const PostRepository = {
     });
   },
 
-  createWithTags({ authorId, title, body, tagNames, status, publishedAt }) {
+  createWithTags({ authorId, title, body, status, publishedAt, tagNames }) {
     return prisma.post.create({
       data: {
         authorId,

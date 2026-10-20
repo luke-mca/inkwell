@@ -13,7 +13,10 @@ export const PostService = {
     assertNonEmpty(body, "body", "MISSING_BODY");
 
     const post = await PostRepository.createWithTags({
-      authorId, title, body, tagNames,
+      authorId,
+      title,
+      body,
+      tagNames,
       status: "PUBLISHED",
       publishedAt: new Date(),
     });
