@@ -2,7 +2,7 @@
 
 import { jest } from "@jest/globals";
 
-const mockPostRepository = { createWithTags: jest.fn() };
+const mockPostRepository = { createWithTags: jest.fn(), findPublished: jest.fn() };
 const mockEventBus = { emit: jest.fn() };
 const mockSearchStrategy = { search: jest.fn() };
 
@@ -16,7 +16,7 @@ jest.unstable_mockModule("../search/substring-search.strategy.js", () => ({
   SubstringSearchStrategy: mockSearchStrategy,
 }));
 
-const { PostService } = await import("../post.service.js");
+const { PostService, MAX_PAGE_SIZE } = await import("../post.service.js");
 
 test("publish() creates a PUBLISHED post and emits post.published", async () => {
   mockPostRepository.createWithTags.mockResolvedValue({ id: "p1", title: "Hello", status: "PUBLISHED" });
@@ -73,5 +73,31 @@ describe("PostService.search", () => {
     await PostService.search({ query: "hello", page: 2, pageSize: 5 });
 
     expect(mockSearchStrategy.search).toHaveBeenCalledWith("hello", { page: 2, pageSize: 5 });
+  });
+});
+
+describe("pageSize limit (Lecture 15, Exercise 1 — DoS mitigation)", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockPostRepository.findPublished.mockResolvedValue({ posts: [], hasMore: false });
+    mockSearchStrategy.search.mockResolvedValue({ posts: [], hasMore: false });
+  });
+
+  test("listPublished() clamps an oversized pageSize to MAX_PAGE_SIZE", async () => {
+    await PostService.listPublished({ page: 1, pageSize: 1000000 });
+
+    expect(mockPostRepository.findPublished).toHaveBeenCalledWith({ page: 1, pageSize: MAX_PAGE_SIZE });
+  });
+
+  test("search() clamps an oversized pageSize to MAX_PAGE_SIZE", async () => {
+    await PostService.search({ query: "hello", page: 1, pageSize: 1000000 });
+
+    expect(mockSearchStrategy.search).toHaveBeenCalledWith("hello", { page: 1, pageSize: MAX_PAGE_SIZE });
+  });
+
+  test.each([0, -5, "abc", 2.5])("falls back to the default pageSize for invalid value %p", async (pageSize) => {
+    await PostService.listPublished({ page: 1, pageSize });
+
+    expect(mockPostRepository.findPublished).toHaveBeenCalledWith({ page: 1, pageSize: 10 });
   });
 });
