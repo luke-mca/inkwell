@@ -39,10 +39,13 @@ model Tag {
   posts PostTag[]
 }
 
+// Deleting a tagged post throws a foreign-key violation without this:
+// PostTag -> Post never specified cascade behavior. Run
+// `npx prisma migrate dev --name post_tag_cascade` after this change.
 model PostTag {
   postId String
   tagId  String
-  post   Post @relation(fields: [postId], references: [id])
+  post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
   tag    Tag  @relation(fields: [tagId], references: [id])
 
   @@id([postId, tagId])

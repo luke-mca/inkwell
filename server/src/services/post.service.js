@@ -56,4 +56,12 @@ export const PostService = {
   async search({ query, page = 1, pageSize = DEFAULT_PAGE_SIZE }) {
     return searchStrategy.search(query, { page, pageSize: clampPageSize(pageSize) });
   },
+
+  async getById(id) {
+    return PostRepository.findById(id);
+  },
+
+  async delete(id) {
+    return PostRepository.deleteById(id);
+  },
 };
