@@ -169,9 +169,12 @@ jobs:
           npx prisma generate
           npx prisma migrate deploy
           printf 'DATABASE_URL=%s\n' "$DATABASE_URL" > .env
+          printf 'AUTH_RATE_LIMIT_MAX=%s\n' 20 >> .env
         # The server's "dev" script loads .env (--env-file=.env), which
-        # is never committed. CI writes a throwaway one holding only the
-        # test database's URL.
+        # is never committed. CI writes a throwaway one holding the test
+        # database's URL and a higher auth rate limit: the publish-flow
+        # test makes six auth requests (register + log in for each of
+        # three viewports), one more than the production limit of five.
 
       - name: Install the Chromium browser
         run: npx playwright install --with-deps chromium
@@ -179,9 +182,8 @@ jobs:
       - name: Run end-to-end tests             # Lecture 14's E2E + accessibility suites
         run: npx playwright test --project=chromium
         # Chromium only on every pull request: fast, and it keeps the
-        # publish-flow test's sign-ups under the server's auth rate limit
-        # (5 requests per 10 minutes per IP, Lecture 15). Firefox and
-        # WebKit belong in a scheduled run (Section 4.2).
+        # publish-flow test's sign-ups under the auth rate limit set
+        # above. Firefox and WebKit belong in a scheduled run (Section 4.2).
 
       - name: Upload the Playwright report
         if: failure()
