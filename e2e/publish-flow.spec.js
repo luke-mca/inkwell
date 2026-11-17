@@ -50,7 +50,7 @@ for (const viewport of viewports) {
 
       await expect(page).toHaveURL("http://localhost:5173/");
 
-      await page.getByRole("link", { name: "Write" }).click();
+      await page.getByRole("link", { name: "Write", exact: true }).click();
       await page.getByLabel("Title").fill(title);
       await page.getByLabel("Body").fill("Published end to end.");
       await page.getByRole("button", { name: "Publish" }).click();
