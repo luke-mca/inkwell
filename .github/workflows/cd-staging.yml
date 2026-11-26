@@ -1,0 +1,98 @@
+# .github/workflows/cd-staging.yml
+#
+# Section 4.2's CD workflow steps, applied: this workflow does NOT
+# rebuild or re-test anything — it picks up exactly where Lecture 20's
+# CI pipeline (ci.yml) left off, deploying the exact image GHCR already
+# received.
+
+name: Deploy to Staging
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+  # This workflow only runs AFTER Lecture 20's CI workflow completes
+  # on main — and the job below only proceeds if CI succeeded.
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+  # Two merges in quick succession queue their deploys one after the
+  # other instead of racing each other.
+
+jobs:
+  deploy-staging:
+    # Only a successful CI run for a PUSH to main has published an image
+    # (Lecture 20's prepare-deployment-artifact runs only on push).
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' }}
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: ${{ vars.STAGING_URL }}
+      # Section 4.3: GitHub Environments scope secrets per environment
+      # (this job sees the staging RENDER_DEPLOY_HOOK, never production's)
+      # and can require manual approval — staging deploys automatically;
+      # production, configured separately, requires a human click.
+    env:
+      APP_URL: ${{ vars.STAGING_URL }}
+      DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+      SHA: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      - name: Check out the load-test scripts
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Deploy the exact CI-tested image to Render   # Section 4.2, steps 1-2
+        run: |
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/inkwell-server:${SHA}"
+          echo "Deploying $IMAGE"
+          curl -fsS -X POST "${DEPLOY_HOOK}&imgURL=${IMAGE}"
+        # Section 4.3b: an image-backed deploy hook, told exactly which
+        # already-built, already-tested tag to pull — Render never
+        # rebuilds from source for this request, which is what actually
+        # enforces this section's "never rebuild" guarantee end to end.
+        # Render rejects the request unless everything in imgURL except
+        # the tag matches the service's image URL in render.yaml.
+
+      - name: Wait for staging to respond                   # Section 4.2, step 3
+        run: |
+          for attempt in $(seq 1 40); do
+            if curl -fsS --max-time 30 "$APP_URL/api/health"; then
+              echo; echo "Staging answered on attempt $attempt"; exit 0
+            fi
+            sleep 15
+          done
+          echo "::error::Staging did not answer within 10 minutes"; exit 1
+        # Render deploys asynchronously, and a sleeping free instance
+        # takes about a minute to wake. Polling for up to 10 minutes
+        # replaces a fixed sleep. Limitation: Render keeps the previous
+        # version serving until the new one passes its health check, so
+        # this can still answer from the OLD version while the new one is
+        # starting. A production-grade pipeline would poll Render's
+        # Deploys API until this deploy's status is "live".
+
+      - name: Run smoke tests against staging
+        run: |
+          curl -fsS --max-time 30 "$APP_URL/api/health"; echo
+          curl -fsS --max-time 30 "$APP_URL/api/posts?page=1" > /dev/null
+          echo "Smoke tests passed"
+        # A fast, minimal check — NOT a re-run of Lectures 12-14's full
+        # suite, which already ran in CI. /api/health alone never touches
+        # the database (Lecture 18, Mistake 6), so /api/posts checks that
+        # the database is reachable and migrated.
+
+      - name: Load test (informational)                     # Section 4.5
+        continue-on-error: true
+        run: docker run --rm -i -e BASE_URL="$APP_URL" grafana/k6:latest run - < load-tests/feed.k6.js
+        # continue-on-error: a slow run is recorded in the log but never
+        # blocks or fails the deployment (Section 4.5's design decision).
+
+      - name: Notify team of deployment result              # Section 4.2, step 4
+        if: always()
+        run: |
+          echo "Staging deployment of ${SHA}: ${{ job.status }}"
