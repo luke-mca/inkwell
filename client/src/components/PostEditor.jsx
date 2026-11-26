@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getToken, getUser } from "../lib/auth";
+import { getToken } from "../lib/auth";
+import { useAuth } from "../lib/auth-context";
 
 const STATES = { IDLE: "idle", EDITING: "editing", PUBLISHING: "publishing" };
 
@@ -11,6 +12,7 @@ export function PostEditor() {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [errorMessage, setErrorMessage] = useState(null);
+  const { signOut } = useAuth();
   const navigate = useNavigate();
 
   async function handlePublish() {
@@ -24,10 +26,17 @@ export function PostEditor() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${getToken()}`,
         },
-        // authorId added here: without it every publish attempt fails
-        // server-side (see the auth.js note above).
-        body: JSON.stringify({ title, body, authorId: getUser()?.id }),
+        // No authorId: since Lecture 15 the server takes the author from
+        // the verified token (requireAuth), never from the request body.
+        body: JSON.stringify({ title, body }),
       });
+
+      if (response.status === 401) {
+        // Lecture 22: the 15-minute access token (Lecture 6) has expired.
+        signOut();
+        navigate("/login");
+        return;
+      }
 
       if (!response.ok) {
         const { error } = await response.json();
@@ -48,32 +57,49 @@ export function PostEditor() {
       {/* h1 added: no page in the app has had one since Lecture 7's
           Router rewrite dropped Lecture 1's placeholder — a real
           accessibility violation the axe-core check below catches. */}
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Write a new post</h1>
+      <h1 className="text-2xl font-bold text-gray-900 mb-6">
+        Write a new post
+      </h1>
       <form
         className="space-y-4"
-        onSubmit={(e) => { e.preventDefault(); handlePublish(); }}
+        onSubmit={(e) => {
+          e.preventDefault();
+          handlePublish();
+        }}
       >
         <div>
-          <label htmlFor="post-title" className="block text-sm font-medium text-gray-700">
+          <label
+            htmlFor="post-title"
+            className="block text-sm font-medium text-gray-700"
+          >
             Title
           </label>
           <input
             id="post-title"
             value={title}
-            onChange={(e) => { setTitle(e.target.value); setStatus(STATES.EDITING); }}
+            onChange={(e) => {
+              setTitle(e.target.value);
+              setStatus(STATES.EDITING);
+            }}
             className="mt-1 block w-full rounded border-gray-300 shadow-sm"
             aria-describedby={errorMessage ? "post-error" : undefined}
           />
         </div>
 
         <div>
-          <label htmlFor="post-body" className="block text-sm font-medium text-gray-700">
+          <label
+            htmlFor="post-body"
+            className="block text-sm font-medium text-gray-700"
+          >
             Body
           </label>
           <textarea
             id="post-body"
             value={body}
-            onChange={(e) => { setBody(e.target.value); setStatus(STATES.EDITING); }}
+            onChange={(e) => {
+              setBody(e.target.value);
+              setStatus(STATES.EDITING);
+            }}
             rows={10}
             className="mt-1 block w-full rounded border-gray-300 shadow-sm"
           />

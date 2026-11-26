@@ -1,29 +1,20 @@
 // server/src/services/auth.service.js
 //
-// Implements processing narratives exactly, in order.
+// Implements Section 5.2's processing narratives exactly, in order.
 
 import bcrypt from "bcrypt";
 import { UserRepository } from "../repositories/user.repository.js";
 import { assertNonEmpty, ValidationError } from "../utils/validation.js";
 import { TokenService } from "./token.service.js";
 import { logger } from "../lib/logger.js";
+import { toPublicUser } from "../dto/user.dto.js";
 
 class EmailAlreadyRegisteredError extends Error {}
 class WeakPasswordError extends Error {}
 class InvalidCredentialsError extends Error {}
 
-// Section 4.5's "Magic Numbers" anti-pattern, corrected: the bcrypt
-// cost factor and minimum password length are now named constants,
-// not bare literals a future reader would have to guess the meaning of.
 const BCRYPT_COST_FACTOR = 10; // see Lecture 15 for the security tradeoff this number encodes
 const MIN_PASSWORD_LENGTH = 8;
-
-// The stored User row carries passwordHash, which must never reach a
-// client. Shaping the row here — rather than in the route — means every
-// caller of register()/login() gets the safe view by default.
-function toPublicUser({ id, email, displayName }) {
-  return { id, email, displayName };
-}
 
 export const AuthService = {
   async register({ email, displayName, password }) {
@@ -46,13 +37,15 @@ export const AuthService = {
     try {
       user = await UserRepository.create({ email, displayName, passwordHash });
     } catch (err) {
-      // Defense in depth (Lecture 4): the DB's @unique
+      // Defense in depth (Lecture 4, Section 6.2): the DB's @unique
       // constraint may reject a race-condition duplicate that slipped
-      // past the check above.
+      // past the check above (Section 4.4's concurrency note).
       throw new EmailAlreadyRegisteredError();
     }
 
     const tokens = TokenService.issueTokens(user);
+    // Lecture 22: return only the public fields (Lecture 16's DTO), never
+    // the database row, which includes passwordHash and email.
     return { user: toPublicUser(user), ...tokens };
   },
 
@@ -62,7 +55,10 @@ export const AuthService = {
       // fix: a structured, leveled, machine-parseable log
       // line — searchable by "event" or "email" once aggregated
       // , not just a free-form sentence buried in scrollback.
-      logger.warn({ event: "auth.login.failed", email }, "Failed login attempt");
+      logger.warn(
+        { event: "auth.login.failed", email },
+        "Failed login attempt",
+      );
       throw new InvalidCredentialsError();
     }
 

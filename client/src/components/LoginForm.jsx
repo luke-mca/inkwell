@@ -1,8 +1,8 @@
 // client/src/components/LoginForm.jsx
 
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { saveToken, saveUser } from "../lib/auth";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../lib/auth-context";
 
 const STATES = { IDLE: "idle", EDITING: "editing", SUBMITTING: "submitting" };
 
@@ -11,6 +11,7 @@ export function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState(null);
+  const { signIn } = useAuth();
   const navigate = useNavigate();
 
   async function handleLogin() {
@@ -31,9 +32,7 @@ export function LoginForm() {
         return;
       }
 
-      const { accessToken, user } = await response.json();
-      saveToken(accessToken);
-      saveUser(user);
+      signIn(await response.json());
       navigate("/");
     } catch {
       setErrorMessage("Something went wrong. Please try again.");
@@ -104,6 +103,12 @@ export function LoginForm() {
           {status === STATES.SUBMITTING ? "Logging in…" : "Log In"}
         </button>
       </form>
+      <p className="mt-4 text-sm text-gray-600">
+        No account yet?{" "}
+        <Link to="/register" className="text-indigo-600 underline">
+          Register
+        </Link>
+      </p>
     </div>
   );
 }

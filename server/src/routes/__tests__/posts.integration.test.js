@@ -1,8 +1,4 @@
 // server/src/routes/__tests__/posts.integration.test.js
-//
-// Section 4.2's sandwich strategy in miniature: real Routes, real
-// Services, real Repositories, real (isolated) test database — no
-// mocks anywhere in this file.
 
 import request from "supertest";
 import { app } from "../../app.js";
@@ -22,18 +18,25 @@ afterAll(async () => {
 
 test("full flow: register, publish, and browse (US-01, US-03, US-04 validation)", async () => {
   // Arrange + Act (Section 4.6's AAA pattern): register a real user
-  const registerRes = await request(app)
-    .post("/api/auth/register")
-    .send({ email: "alice@example.com", displayName: "Alice", password: "correcthorse" });
+  const registerRes = await request(app).post("/api/auth/register").send({
+    email: "alice@example.com",
+    displayName: "Alice",
+    password: "correcthorse",
+  });
 
   expect(registerRes.status).toBe(201);
   const { user, accessToken } = registerRes.body;
+  // Lecture 22: the response carries only public fields.
+  expect(user).toEqual({ id: expect.any(String), displayName: "Alice" });
 
   // Act: publish a real post as that user
   const publishRes = await request(app)
     .post("/api/posts")
     .set("Authorization", `Bearer ${accessToken}`)
-    .send({ authorId: user.id, title: "Hello, Inkwell", body: "My first real post." });
+    .send({
+      title: "Hello, Inkwell",
+      body: "My first real post.",
+    });
 
   expect(publishRes.status).toBe(201);
 
@@ -47,13 +50,17 @@ test("full flow: register, publish, and browse (US-01, US-03, US-04 validation)"
 });
 
 test("registering with a duplicate email fails end to end (US-01 extension 3a, validated)", async () => {
-  await request(app)
-    .post("/api/auth/register")
-    .send({ email: "alice@example.com", displayName: "Alice", password: "correcthorse" });
+  await request(app).post("/api/auth/register").send({
+    email: "alice@example.com",
+    displayName: "Alice",
+    password: "correcthorse",
+  });
 
-  const secondAttempt = await request(app)
-    .post("/api/auth/register")
-    .send({ email: "alice@example.com", displayName: "Alice Two", password: "correcthorse" });
+  const secondAttempt = await request(app).post("/api/auth/register").send({
+    email: "alice@example.com",
+    displayName: "Alice Two",
+    password: "correcthorse",
+  });
 
   expect(secondAttempt.status).toBe(400);
   expect(secondAttempt.body.error.code).toBe("EMAIL_ALREADY_REGISTERED");

@@ -1,12 +1,8 @@
 // client/src/lib/auth.js
 //
-// Verification fix: PostEditor needs to know the logged-in user's id to
-// send as authorId — the server doesn't derive identity from the token
-// itself until Lecture 15's requireAuth middleware, so until then the
-// client is the only source of authorId. Without this, every real
-// publish attempt below fails server-side with a Prisma
-// "Argument `author` is missing" error, invisible to every prior unit
-// and integration test because they all supplied authorId directly.
+// localStorage helpers for the access token and the signed-in user.
+// Components should not call these directly: they use useAuth() from
+// auth-context.js, which keeps React state and storage in step.
 
 const TOKEN_KEY = "inkwell_access_token";
 const USER_KEY = "inkwell_user";
@@ -28,8 +24,11 @@ export function saveUser(user) {
 }
 
 export function getUser() {
-  const raw = localStorage.getItem(USER_KEY);
-  return raw ? JSON.parse(raw) : null;
+  try {
+    return JSON.parse(localStorage.getItem(USER_KEY));
+  } catch {
+    return null; // corrupted value: treat as signed out
+  }
 }
 
 export function clearUser() {
