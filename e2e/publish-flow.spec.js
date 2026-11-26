@@ -5,16 +5,16 @@
 // journey is run once per viewport, not just once at an arbitrary
 // default size.
 //
-// Registration has no client-side UI anywhere in Inkwell (only Section
-// 6.1a's LoginForm exists) -- every account so far has been created via
-// curl. This test creates its account the same way, via a direct API
-// call, then drives the real UI for the login/publish journey.
+// Lecture 22: the whole journey now goes through the real UI —
+// register, publish, see the post with its author in the feed, log out,
+// and log back in. Each viewport makes two auth requests (register,
+// login), staying under the server's limit of 5 per 10 minutes per IP
+// (Lecture 15's rate limiter).
 
 import { test, expect, devices } from "@playwright/test";
 
 const viewports = [
   { name: "mobile", viewport: devices["iPhone 13"].viewport },
-  { name: "tablet", viewport: devices["iPad Mini"].viewport },
   { name: "desktop", viewport: { width: 1280, height: 800 } },
 ];
 
@@ -22,52 +22,52 @@ for (const viewport of viewports) {
   test.describe(`publish flow — ${viewport.name}`, () => {
     test.use({ viewport: viewport.viewport });
 
-    test("a registered user can log in and publish a post", async ({ page, request }) => {
-      // Verification fix: a fixed email/title collides across repeated
-      // runs of this suite against the same dev database (no isolated
-      // e2e database exists) -- register silently "fails" on a
-      // duplicate but login still succeeds against the stale account,
-      // and re-running the suite accumulates duplicate posts until
-      // Playwright's strict-mode element matching breaks. A per-run
-      // suffix sidesteps it.
+    test("a new user can register, publish, log out and log back in", async ({
+      page,
+    }) => {
+      // A per-run suffix keeps repeated runs against the same database
+      // from colliding on the email or the post title.
       const runId = Date.now();
       const email = `e2e-${viewport.name}-${runId}@example.com`;
+      const displayName = `E2E ${viewport.name} ${runId}`;
       const title = `Hello from ${viewport.name} (${runId})`;
 
-      const registerRes = await request.post("http://localhost:4000/api/auth/register", {
-        data: { email, displayName: "E2E Tester", password: "correcthorse" },
-      });
-      expect(registerRes.ok()).toBe(true);
-
-      await page.goto("http://localhost:5173/login");
-
-      // Section 4.1: real interaction, not simulated events — Playwright
-      // drives an actual browser, so this exercises real focus order,
-      // real touch/click handling, and real CSS layout.
+      // Register through the UI: this also signs the user in.
+      await page.goto("http://localhost:5173/register");
+      await page.getByLabel("Display name").fill(displayName);
       await page.getByLabel("Email").fill(email);
       await page.getByLabel("Password").fill("correcthorse");
-      await page.getByRole("button", { name: "Log In" }).click();
+      await page.getByRole("button", { name: "Register" }).click();
 
       await expect(page).toHaveURL("http://localhost:5173/");
+      await expect(page.getByText(`Signed in as ${displayName}`)).toBeVisible();
 
+      // Publish a post.
       await page.getByRole("link", { name: "Write", exact: true }).click();
       await page.getByLabel("Title").fill(title);
       await page.getByLabel("Body").fill("Published end to end.");
       await page.getByRole("button", { name: "Publish" }).click();
 
-      // Verification fix: a bare getByText() here passes even when
-      // publishing fails server-side, because it matches the leftover
-      // value still sitting in the unsubmitted <input> -- the page
-      // never navigates away on failure, so the typed text is still
-      // technically "visible" on screen. Asserting the actual
-      // navigation first, then scoping the text check to a real post
-      // heading, makes this test fail the way it's supposed to when
-      // publishing is actually broken.
+      // Assert the navigation first, so a failed publish cannot pass by
+      // matching the title still sitting in the unsubmitted form.
       await expect(page).toHaveURL("http://localhost:5173/");
+      const post = page.getByRole("listitem").filter({ hasText: title });
+      await expect(post.getByRole("heading", { name: title })).toBeVisible();
+      await expect(post.getByText(`By ${displayName}`)).toBeVisible();
 
-      // Section 4.3 (UX testing): the actual, user-visible outcome —
-      // the new post genuinely appears in the rendered feed.
-      await expect(page.getByRole("heading", { name: title })).toBeVisible();
+      // Log out: the signed-in links disappear.
+      await page.getByRole("button", { name: "Log out" }).click();
+      await expect(page.getByRole("link", { name: "Log in" })).toBeVisible();
+      await expect(page.getByRole("link", { name: "Write", exact: true })).toHaveCount(0);
+
+      // Log back in with the same account.
+      await page.getByRole("link", { name: "Log in" }).click();
+      await page.getByLabel("Email").fill(email);
+      await page.getByLabel("Password").fill("correcthorse");
+      await page.getByRole("button", { name: "Log In" }).click();
+
+      await expect(page).toHaveURL("http://localhost:5173/");
+      await expect(page.getByText(`Signed in as ${displayName}`)).toBeVisible();
     });
   });
 }

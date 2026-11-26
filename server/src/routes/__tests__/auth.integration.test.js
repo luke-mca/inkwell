@@ -34,5 +34,6 @@ test("a newly registered user can log in with the same credentials (US-01, US-02
   expect(loginRes.status).toBe(200);
   expect(loginRes.body.accessToken).toEqual(expect.any(String));
   expect(loginRes.body.user.id).toBe(registerRes.body.user.id);
-  expect(loginRes.body.user.email).toBe("alice@example.com");
+  // Lecture 22: the response carries only public fields, never email.
+  expect(loginRes.body.user).toEqual({ id: registerRes.body.user.id, displayName: "Alice" });
 });
